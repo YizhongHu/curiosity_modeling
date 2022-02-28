@@ -234,18 +234,148 @@ pred canFlipColDown[prev: State, row, col: Int, post: State, row2, col2: Int] {
     }
 }
 
+pred canFlipDiagBR[prev: State, row, col: Int, post: State, row2, col2: Int] {
+    -- The players cannot be the same
+    prev.nextPlayer != post.nextPlayer
+
+    -- row, col is where new piece is placed down
+    -- row2, col2 is where a previously existing piece on the board is
+    row2 > row
+    subtract[row2, row] = subtract[col2, col]  // Major diagonal
+    
+    -- Must have no piece there beforehand
+    no prev.board[row][col]
+    -- Must have player piece there after
+    post.board[row][col] = prev.nextPlayer
+
+    some rowEnd, colEnd: Int | {
+        -- Checking only the top-left diagonal of row2 col2
+        rowEnd > row2
+        subtract[rowEnd, row] = subtract[colEnd, col]
+        -- Must exist a piece to the bottom right
+        -- that belongs to the player who just placed a piece down
+        prev.board[rowEnd][colEnd] = prev.nextPlayer
+        all rowBetween, colBetween: Int | {
+            -- Checking all positions between rowEnd and row
+            -- All pieces along the way must belong to the opposing player
+            -- Must have piece at every step on the way
+            (subtract[rowEnd, row] = subtract[colEnd, col] and
+                rowBetween < rowEnd and rowBetween > row)
+                => prev.board[rowBetween][rowBetween] = post.nextPlayer
+        }
+    }
+}
+
+pred canFlipDiagTL[prev: State, row, col: Int, post: State, row2, col2: Int] {
+    -- The players cannot be the same
+    prev.nextPlayer != post.nextPlayer
+
+    -- row, col is where new piece is placed down
+    -- row2, col2 is where a previously existing piece on the board is
+    row2 < row
+    subtract[row2, row] = subtract[col2, col]  // Major diagonal
+    
+    -- Must have no piece there beforehand
+    no prev.board[row][col]
+    -- Must have player piece there after
+    post.board[row][col] = prev.nextPlayer
+
+    some rowEnd, colEnd: Int | {
+        -- Checking only the top-left diagonal of row2 col2
+        rowEnd < row2
+        subtract[rowEnd, row] = subtract[colEnd, col]
+        -- Must exist a piece to the top left that belongs to the player who just placed a piece down
+        prev.board[rowEnd][colEnd] = prev.nextPlayer
+        all rowBetween, colBetween: Int | {
+            -- Checking all positions between rowEnd and row
+            -- All pieces along the way must belong to the opposing player
+            -- Must have piece at every step on the way
+            (subtract[rowEnd, row] = subtract[colEnd, col] and
+                rowBetween > rowEnd and rowBetween < row)
+                => prev.board[rowBetween][rowBetween] = post.nextPlayer
+        }
+    }
+}
+
+pred canFlipDiagTR[prev: State, row, col: Int, post: State, row2, col2: Int] {
+    -- The players cannot be the same
+    prev.nextPlayer != post.nextPlayer
+
+    -- row, col is where new piece is placed down
+    -- row2, col2 is where a previously existing piece on the board is
+    row2 > row
+    subtract[row2, row] = subtract[col, col2]  // Minor diagonal
+    
+    -- Must have no piece there beforehand
+    no prev.board[row][col]
+    -- Must have player piece there after
+    post.board[row][col] = prev.nextPlayer
+
+    some rowEnd, colEnd: Int | {
+        -- Checking only the top-right diagonal of row2 col2
+        rowEnd > row2
+        subtract[rowEnd, row] = subtract[col, colEnd]
+        -- Must exist a piece to the top right that belongs to the player who just placed a piece down
+        prev.board[rowEnd][colEnd] = prev.nextPlayer
+        all rowBetween, colBetween: Int | {
+            -- Checking all positions between rowEnd and row
+            -- All pieces along the way must belong to the opposing player
+            -- Must have piece at every step on the way
+            (subtract[rowEnd, row] = subtract[col, colEnd] and
+                rowBetween < rowEnd and rowBetween > row)
+                => prev.board[rowBetween][rowBetween] = post.nextPlayer
+        }
+    }
+}
+
+pred canFlipDiagBL[prev: State, row, col: Int, post: State, row2, col2: Int] {
+    -- The players cannot be the same
+    prev.nextPlayer != post.nextPlayer
+
+    -- row, col is where new piece is placed down
+    -- row2, col2 is where a previously existing piece on the board is
+    row2 < row
+    subtract[row2, row] = subtract[col, col2]  // Minor diagonal
+    
+    -- Must have no piece there beforehand
+    no prev.board[row][col]
+    -- Must have player piece there after
+    post.board[row][col] = prev.nextPlayer
+
+    some rowEnd, colEnd: Int | {
+        -- Checking only the top-right diagonal of row2 col2
+        rowEnd < row2
+        subtract[rowEnd, row] = subtract[col, colEnd]
+        -- Must exist a piece to the bottom left
+        -- that belongs to the player who just placed a piece down
+        prev.board[rowEnd][colEnd] = prev.nextPlayer
+        all rowBetween, colBetween: Int | {
+            -- Checking all positions between rowEnd and row
+            -- All pieces along the way must belong to the opposing player
+            -- Must have piece at every step on the way
+            (subtract[rowEnd, row] = subtract[col, colEnd] and
+                rowBetween > rowEnd and rowBetween < row)
+                => prev.board[rowBetween][rowBetween] = post.nextPlayer
+        }
+    }
+}
+
 fun countPieces[s: State]: Int{
     #{i, j: Int | some s.board[i][j]}
 }
 
 // WIP Diagonals
 pred canFlipTile[prev: State, row, col: Int, post: State, row2, col2: Int] {
-    -- Changed due to being able to flip the piece in the row
-    (row = row2 and col != col2 
-        and (canFlipRowRight[prev, row, col, post, row2, col2] or canFlipRowLeft[prev, row, col, post, row2, col2]))
-    -- Changed due to being able to flip the piece in the col
-    or (row != row2 and col = col2 
-        and (canFlipColUp[prev, row, col, post, row2, col2] or canFlipColDown[prev, row, col, post, row2, col2]))
+    -- After a piece is played at (row, col), check if a piece at (row2, col2)
+    -- need to be flipped
+    canFlipRowRight[prev, row, col, post, row2, col2]
+    or canFlipRowLeft[prev, row, col, post, row2, col2]
+    or canFlipColUp[prev, row, col, post, row2, col2]
+    or canFlipColDown[prev, row, col, post, row2, col2]
+    or canFlipDiagTL[prev, row, col, post, row2, col2]
+    or canFlipDiagTR[prev, row, col, post, row2, col2]
+    or canFlipDiagBL[prev, row, col, post, row2, col2]
+    or canFlipDiagBR[prev, row, col, post, row2, col2]
 }
 
 pred move[prev: State, row: Int, col: Int, post: State] {
@@ -268,11 +398,26 @@ pred move[prev: State, row: Int, col: Int, post: State] {
             post.board[row2][col2] = prev.nextPlayer
         } else {
             -- Changed due to being able to flip the piece
-            canFlipTile[prev, row, col, post, row2, col2] => prev.board[row2][col2] != post.board[row2][col2]
+            { canFlipTile[prev, row, col, post, row2, col2] }
+                => prev.board[row2][col2] != post.board[row2][col2]
                 -- otherwise stays the same
                 else prev.board[row2][col2] = post.board[row2][col2]
         }
     }
+}
+
+test expect {
+    bothRowAndColFlip: {
+        wellformed
+        some s1, s2: State | {
+            some row, col: Int | {
+                s1.next = s2
+                move[s1, row, col, s2]
+                some col2: Int | s2.board[row][col2] != s1.board[row][col2]
+                some row2: Int | s2.board[row2][col] != s1.board[row2][col]
+            }
+        }
+    } for exactly 2 State, 4 Int for {next is linear} is sat
 }
 
 run {
