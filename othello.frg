@@ -59,7 +59,7 @@ pred initState[s: State] {
 }
 
 pred pieceExists[i, j: Int, s: State] {
-    one s.board[i][j]
+    some s.board[i][j]
 }
 
 fun countPlayerPieces[s: State, p: Player]: Int{
@@ -422,10 +422,9 @@ test expect {
 
 run {
     wellformed
-    some s1, s2: State | {
-        some row, col: Int | {
-            s1.next = s2
-            move[s1, row, col, s2]
+    all s: State | {
+        {some s.next} => {
+            some row, col: Int | move[s, row, col, s.next]
         }
     }
-} for exactly 2 State, 4 Int for {next is linear}
+} for exactly 4 State, 4 Int for {next is linear}
