@@ -98,8 +98,7 @@ pred winByMorePieces[s: State, p: Player] {
     
     -- no next state
     not nextStateExists[s]
-    -- no next player
-    no s.nextPlayer
+
 }
 
 test expect {
@@ -364,7 +363,6 @@ fun countPieces[s: State]: Int{
     #{i, j: Int | some s.board[i][j]}
 }
 
-// WIP Diagonals
 pred canFlipTile[prev: State, row, col: Int, post: State, row2, col2: Int] {
     -- After a piece is played at (row, col), check if a piece at (row2, col2)
     -- need to be flipped
@@ -406,6 +404,46 @@ pred move[prev: State, row: Int, col: Int, post: State] {
     }
 }
 
+pred cheatReplacePiece[prev: State, row, col: Int, post: State] {
+    -- Player makes their move by swapping a pre-exisiting piece with their own
+    pieceExists[row, col, prev]
+    prev.board[row][col] != prev.nextPlayer
+    post.board[row][col] = prev.nextPlayer
+    
+    -- Appears as though no piece was placed down
+    subtract[countPieces[post], countPieces[prev]] = 0
+}
+
+pred cheatIllegalFlip[prev: State, row, col: Int, post: State] {
+    -- Player flips pieces that should not be able to be flipped
+    some row2, col2 : Int | {
+        not canFlipTile[prev, row, col, post, row2, col2]
+        prev.board[row2][col2] != post.board[row2][col2]
+    }
+}
+
+pred cheatTwoTurns[prev: State, row, col: Int, post: State] {
+    -- Player takes two turns in a row
+    prev.nextPlayer = post.nextPlayer
+}
+
+pred cheatMoreThanOnePiecePlayed[prev: State, row, col: Int, post: State] {
+    -- Player places multiple pieces down
+    subtract[countPieces[post], countPieces[prev]] > 1
+}
+
+
+pred cheating[s: State] {
+    some row, col: Int | {
+        cheatReplacePiece[s, row, col, s.next] or
+        cheatIllegalFlip[s, row, col, s.next] or
+        cheatTwoTurns[s, row, col, s.next] or
+        cheatMoreThanOnePiecePlayed[s, row, col, s.next] 
+    }
+}
+
+
+-- Both rows and col can be flipped at once
 test expect {
     bothRowAndColFlip: {
         wellformed
@@ -418,6 +456,31 @@ test expect {
             }
         }
     } for exactly 2 State, 4 Int for {next is linear} is sat
+
+    -- At most 6 pieces can be flipped from a single move on a wellformed board
+    flipSixAtOnce: {
+    wellformed
+    some s1, s2: State | {
+        some row, col: Int | {
+            s1.next = s2
+            move[s1, row, col, s2]
+            subtract[countPlayerPieces[s2, s1.nextPlayer], countPlayerPieces[s1, s1.nextPlayer]] = 6
+            }
+        }
+    } for exactly 2 State, 4 Int for {next is linear} is sat
+}
+
+-- inductive proof of no cheating
+test expect {
+    inductive: {
+        wellformed
+        some disj pre, post: State | 
+        some row, col: Int | {       
+            move[pre, row, col, post]
+            not cheating[pre]
+            cheating[post]
+        }
+    } for 2 State, 4 Int is unsat
 }
 
 run {
