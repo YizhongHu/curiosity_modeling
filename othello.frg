@@ -129,11 +129,6 @@ pred canFlipRowRight[prev: State, row, col: Int, post: State, row2, col2: Int] {
     -- row2, col2 is where a previously existing piece on the board is
     row = row2
     col2 > col
-    
-    -- Must have no piece there beforehand
-    no prev.board[row][col]
-    -- Must have player piece there after
-    post.board[row][col] = prev.nextPlayer
 
     some colEnd: Int | {
         -- Checking only to the right
@@ -157,11 +152,6 @@ pred canFlipRowLeft[prev: State, row, col: Int, post: State, row2, col2: Int] {
     -- row2, col2 is where a previously existing piece on the board is
     row = row2
     col2 < col
-    
-    -- Must have no piece there beforehand
-    no prev.board[row][col]
-    -- Must have player piece there after
-    post.board[row][col] = prev.nextPlayer
 
     some colEnd: Int | {
         -- Checking only to the left
@@ -185,11 +175,6 @@ pred canFlipColUp[prev: State, row, col: Int, post: State, row2, col2: Int] {
     -- row2, col2 is where a previously existing piece on the board is
     row > row2
     col2 = col
-    
-    -- Must have no piece there beforehand
-    no prev.board[row][col]
-    -- Must have player piece there after
-    post.board[row][col] = prev.nextPlayer
 
     some rowEnd: Int | {
         -- Checking only above, take 0 as highest row
@@ -213,11 +198,6 @@ pred canFlipColDown[prev: State, row, col: Int, post: State, row2, col2: Int] {
     -- row2, col2 is where a previously existing piece on the board is
     row < row2
     col2 = col
-    
-    -- Must have no piece there beforehand
-    no prev.board[row][col]
-    -- Must have player piece there after
-    post.board[row][col] = prev.nextPlayer
 
     some rowEnd: Int | {
         -- Checking only below, take 0 as highest row
@@ -233,6 +213,14 @@ pred canFlipColDown[prev: State, row, col: Int, post: State, row2, col2: Int] {
     }
 }
 
+pred sameMajorDiag[row, col, row2, col2: Int] {
+    subtract[row2, row] = subtract[col2, col]
+}
+
+pred sameMinorDiag[row, col, row2, col2: Int] {
+    subtract[row2, row] = subtract[col, col2]
+}
+
 pred canFlipDiagBR[prev: State, row, col: Int, post: State, row2, col2: Int] {
     -- The players cannot be the same
     prev.nextPlayer != post.nextPlayer
@@ -240,17 +228,12 @@ pred canFlipDiagBR[prev: State, row, col: Int, post: State, row2, col2: Int] {
     -- row, col is where new piece is placed down
     -- row2, col2 is where a previously existing piece on the board is
     row2 > row
-    subtract[row2, row] = subtract[col2, col]  // Major diagonal
-    
-    -- Must have no piece there beforehand
-    no prev.board[row][col]
-    -- Must have player piece there after
-    post.board[row][col] = prev.nextPlayer
+    sameMajorDiag[row, col, row2, col2]
 
     some rowEnd, colEnd: Int | {
         -- Checking only the top-left diagonal of row2 col2
         rowEnd > row2
-        subtract[rowEnd, row] = subtract[colEnd, col]
+    sameMajorDiag[row, col, rowEnd, colEnd]
         -- Must exist a piece to the bottom right
         -- that belongs to the player who just placed a piece down
         prev.board[rowEnd][colEnd] = prev.nextPlayer
@@ -258,7 +241,7 @@ pred canFlipDiagBR[prev: State, row, col: Int, post: State, row2, col2: Int] {
             -- Checking all positions between rowEnd and row
             -- All pieces along the way must belong to the opposing player
             -- Must have piece at every step on the way
-            (subtract[rowEnd, row] = subtract[colEnd, col] and
+            (sameMajorDiag[row, col, rowBetween, colBetween] and
                 rowBetween < rowEnd and rowBetween > row)
                 => prev.board[rowBetween][rowBetween] = post.nextPlayer
         }
@@ -272,24 +255,19 @@ pred canFlipDiagTL[prev: State, row, col: Int, post: State, row2, col2: Int] {
     -- row, col is where new piece is placed down
     -- row2, col2 is where a previously existing piece on the board is
     row2 < row
-    subtract[row2, row] = subtract[col2, col]  // Major diagonal
-    
-    -- Must have no piece there beforehand
-    no prev.board[row][col]
-    -- Must have player piece there after
-    post.board[row][col] = prev.nextPlayer
+    sameMajorDiag[row, col, row2, col2] // Major diagonal
 
     some rowEnd, colEnd: Int | {
         -- Checking only the top-left diagonal of row2 col2
         rowEnd < row2
-        subtract[rowEnd, row] = subtract[colEnd, col]
+        sameMajorDiag[row, col, rowEnd, colEnd]
         -- Must exist a piece to the top left that belongs to the player who just placed a piece down
         prev.board[rowEnd][colEnd] = prev.nextPlayer
         all rowBetween, colBetween: Int | {
             -- Checking all positions between rowEnd and row
             -- All pieces along the way must belong to the opposing player
             -- Must have piece at every step on the way
-            (subtract[rowEnd, row] = subtract[colEnd, col] and
+            (sameMajorDiag[row, col, rowBetween, colBetween] and
                 rowBetween > rowEnd and rowBetween < row)
                 => prev.board[rowBetween][rowBetween] = post.nextPlayer
         }
@@ -303,24 +281,19 @@ pred canFlipDiagTR[prev: State, row, col: Int, post: State, row2, col2: Int] {
     -- row, col is where new piece is placed down
     -- row2, col2 is where a previously existing piece on the board is
     row2 > row
-    subtract[row2, row] = subtract[col, col2]  // Minor diagonal
-    
-    -- Must have no piece there beforehand
-    no prev.board[row][col]
-    -- Must have player piece there after
-    post.board[row][col] = prev.nextPlayer
+    sameMinorDiag[row, col, row2, col2]
 
     some rowEnd, colEnd: Int | {
         -- Checking only the top-right diagonal of row2 col2
         rowEnd > row2
-        subtract[rowEnd, row] = subtract[col, colEnd]
+        sameMinorDiag[row, col, rowEnd, colEnd]
         -- Must exist a piece to the top right that belongs to the player who just placed a piece down
         prev.board[rowEnd][colEnd] = prev.nextPlayer
         all rowBetween, colBetween: Int | {
             -- Checking all positions between rowEnd and row
             -- All pieces along the way must belong to the opposing player
             -- Must have piece at every step on the way
-            (subtract[rowEnd, row] = subtract[col, colEnd] and
+            (sameMinorDiag[row, col, rowBetween, colBetween] and
                 rowBetween < rowEnd and rowBetween > row)
                 => prev.board[rowBetween][rowBetween] = post.nextPlayer
         }
@@ -334,17 +307,12 @@ pred canFlipDiagBL[prev: State, row, col: Int, post: State, row2, col2: Int] {
     -- row, col is where new piece is placed down
     -- row2, col2 is where a previously existing piece on the board is
     row2 < row
-    subtract[row2, row] = subtract[col, col2]  // Minor diagonal
-    
-    -- Must have no piece there beforehand
-    no prev.board[row][col]
-    -- Must have player piece there after
-    post.board[row][col] = prev.nextPlayer
+    sameMinorDiag[row, col, row2, col2]  // Minor diagonal
 
     some rowEnd, colEnd: Int | {
         -- Checking only the top-right diagonal of row2 col2
         rowEnd < row2
-        subtract[rowEnd, row] = subtract[col, colEnd]
+        sameMinorDiag[row, col, rowEnd, colEnd]
         -- Must exist a piece to the bottom left
         -- that belongs to the player who just placed a piece down
         prev.board[rowEnd][colEnd] = prev.nextPlayer
@@ -352,7 +320,7 @@ pred canFlipDiagBL[prev: State, row, col: Int, post: State, row2, col2: Int] {
             -- Checking all positions between rowEnd and row
             -- All pieces along the way must belong to the opposing player
             -- Must have piece at every step on the way
-            (subtract[rowEnd, row] = subtract[col, colEnd] and
+            (sameMinorDiag[row, col, rowBetween, colBetween] and
                 rowBetween > rowEnd and rowBetween < row)
                 => prev.board[rowBetween][rowBetween] = post.nextPlayer
         }
@@ -404,6 +372,27 @@ pred move[prev: State, row: Int, col: Int, post: State] {
     }
 }
 
+pred validMove[prev: State, post: State] {
+    // Check if the transition from previous state to the post state is valid
+    {some row, col: Int | some s: State | move[prev, row, col, s]}
+        => {some row, col: Int | move[prev, row, col, post]}
+        else {
+            all row, col: Int | { prev.board[row][col] = post.board[row][col] }
+            prev.nextPlayer != post.nextPlayer
+        }
+}
+
+pred trace {
+    some init: State | {
+        no s: State | { s.next = init }
+        initState[init]
+    }
+    
+    all s: State | {
+        {some s.next} => validMove[s, s.next]
+    }
+}
+
 pred cheatReplacePiece[prev: State, row, col: Int, post: State] {
     -- Player makes their move by swapping a pre-exisiting piece with their own
     pieceExists[row, col, prev]
@@ -442,7 +431,7 @@ pred cheating[s: State] {
     }
 }
 
-
+/*
 -- Both rows and col can be flipped at once
 test expect {
     bothRowAndColFlip: {
@@ -481,13 +470,11 @@ test expect {
             cheating[post]
         }
     } for 2 State, 4 Int is unsat
-}
+}*/
 
 run {
     wellformed
     all s: State | {
-        {some s.next} => {
-            some row, col: Int | move[s, row, col, s.next]
+            {some s.next} => validMove[s, s.next]
         }
-    }
 } for exactly 4 State, 4 Int for {next is linear}

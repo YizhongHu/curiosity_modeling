@@ -32,7 +32,7 @@ function printState(stateAtom, yoffset) {
 
 
 var offset = 0
-for (b = 0; b <= 1; b++) {
+for (b = 0; b <= 3; b++) {
     if (State.atom("State" + b) != null)
         printState(State.atom("State" + b), offset)
     offset = offset + 80
