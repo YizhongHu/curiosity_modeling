@@ -7,7 +7,7 @@ one sig B, W extends Player { }
 sig State {
     next: lone State, 
     board: pfunc Int -> Int -> Player,
-    nextPlayer: lone Player
+    nextPlayer: one Player
 }
 
 pred wellformed {
@@ -144,6 +144,26 @@ pred canFlipRowRight[prev: State, row, col: Int, post: State, row2, col2: Int] {
     }
 }
 
+example canFlipInitialRight is {
+    wellformed 
+    some s: State | {
+        some s.next
+        canFlipRowRight[s, 1, 0, s.next, 1, 1]
+    }
+} for {
+    State = `S0 + `S1
+    B = `B0
+    W = `W0
+    Player = B + W
+    next = `S0 -> `S1
+    nextPlayer = `S0 -> `B0 + `S1 -> `W0
+
+    board = `S0 -> 1 -> 1 -> `W0 + `S0 -> 1 -> 2 -> `B0 +
+            `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `W0 + 
+            `S1 -> 1 -> 0 -> `B0 + `S1 -> 1 -> 1 -> `B0 + `S1 -> 1 -> 2 -> `B0 +
+                                   `S1 -> 2 -> 1 -> `B0 + `S1 -> 2 -> 2 -> `W0
+}
+
 pred canFlipRowLeft[prev: State, row, col: Int, post: State, row2, col2: Int] {
     -- The players cannot be the same
     prev.nextPlayer != post.nextPlayer
@@ -165,6 +185,26 @@ pred canFlipRowLeft[prev: State, row, col: Int, post: State, row2, col2: Int] {
             (colBetween > colEnd and colBetween < col) => prev.board[row][colBetween] = post.nextPlayer
         }
     }
+}
+
+example canFlipInitialLeft is {
+    wellformed 
+    some s: State | {
+        some s.next
+        canFlipRowLeft[s, 2, 3, s.next, 2, 2]
+    }
+} for {
+    State = `S0 + `S1
+    B = `B0
+    W = `W0
+    Player = B + W
+    next = `S0 -> `S1
+    nextPlayer = `S0 -> `B0 + `S1 -> `W0
+
+    board = `S0 -> 1 -> 1 -> `W0 + `S0 -> 1 -> 2 -> `B0 +
+            `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `W0 + 
+            `S1 -> 1 -> 1 -> `W0 + `S1 -> 1 -> 2 -> `B0 +
+            `S1 -> 2 -> 1 -> `B0 + `S1 -> 2 -> 2 -> `B0 + `S1 -> 2 -> 3 -> `B0
 }
 
 pred canFlipColUp[prev: State, row, col: Int, post: State, row2, col2: Int] {
@@ -190,6 +230,28 @@ pred canFlipColUp[prev: State, row, col: Int, post: State, row2, col2: Int] {
     }
 }
 
+
+example canFlipInitialUp is {
+    wellformed 
+    some s: State | {
+        some s.next
+        canFlipColUp[s, 3, 2, s.next, 2, 2]
+    }
+} for {
+    State = `S0 + `S1
+    B = `B0
+    W = `W0
+    Player = B + W
+    next = `S0 -> `S1
+    nextPlayer = `S0 -> `B0 + `S1 -> `W0
+
+    board = `S0 -> 1 -> 1 -> `W0 + `S0 -> 1 -> 2 -> `B0 +
+            `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `W0 + 
+            `S1 -> 1 -> 1 -> `W0 + `S1 -> 1 -> 2 -> `B0 +
+            `S1 -> 2 -> 1 -> `B0 + `S1 -> 2 -> 2 -> `B0
+                                 + `S1 -> 3 -> 2 -> `B0
+}
+
 pred canFlipColDown[prev: State, row, col: Int, post: State, row2, col2: Int] {
     -- The players cannot be the same
     prev.nextPlayer != post.nextPlayer
@@ -213,6 +275,27 @@ pred canFlipColDown[prev: State, row, col: Int, post: State, row2, col2: Int] {
     }
 }
 
+example canFlipInitialDown is {
+    wellformed 
+    some s: State | {
+        some s.next
+        canFlipColDown[s, 0, 1, s.next, 1, 1]
+    }
+} for {
+    State = `S0 + `S1
+    B = `B0
+    W = `W0
+    Player = B + W
+    next = `S0 -> `S1
+    nextPlayer = `S0 -> `B0 + `S1 -> `W0
+
+    board = `S0 -> 1 -> 1 -> `W0 + `S0 -> 1 -> 2 -> `B0 +
+            `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `W0 + 
+            `S1 -> 0 -> 1 -> `B0 +
+            `S1 -> 1 -> 1 -> `B0 + `S1 -> 1 -> 2 -> `B0 +
+            `S1 -> 2 -> 1 -> `B0 + `S1 -> 2 -> 2 -> `W0
+}
+
 pred sameMajorDiag[row, col, row2, col2: Int] {
     subtract[row2, row] = subtract[col2, col]
 }
@@ -233,7 +316,7 @@ pred canFlipDiagBR[prev: State, row, col: Int, post: State, row2, col2: Int] {
     some rowEnd, colEnd: Int | {
         -- Checking only the top-left diagonal of row2 col2
         rowEnd > row2
-    sameMajorDiag[row, col, rowEnd, colEnd]
+        sameMajorDiag[row, col, rowEnd, colEnd]
         -- Must exist a piece to the bottom right
         -- that belongs to the player who just placed a piece down
         prev.board[rowEnd][colEnd] = prev.nextPlayer
@@ -243,9 +326,30 @@ pred canFlipDiagBR[prev: State, row, col: Int, post: State, row2, col2: Int] {
             -- Must have piece at every step on the way
             (sameMajorDiag[row, col, rowBetween, colBetween] and
                 rowBetween < rowEnd and rowBetween > row)
-                => prev.board[rowBetween][rowBetween] = post.nextPlayer
+                => {prev.board[rowBetween][colBetween] = post.nextPlayer}
         }
     }
+}
+
+example someFlipDiagBR is {
+    wellformed 
+    some s: State | {
+        some s.next
+        canFlipDiagBR[s, 0, 0, s.next, 1, 1]
+    }
+} for {
+    State = `S0 + `S1
+    B = `B0
+    W = `W0
+    Player = B + W
+    next = `S0 -> `S1
+    nextPlayer = `S0 -> `B0 + `S1 -> `W0
+
+    board = `S0 -> 1 -> 1 -> `W0 + `S0 -> 1 -> 2 -> `B0 +
+            `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `B0 + 
+            `S1 -> 0 -> 0 -> `B0 +
+                                   `S1 -> 1 -> 1 -> `B0 + `S1 -> 1 -> 2 -> `B0 +
+                                   `S1 -> 2 -> 1 -> `B0 + `S1 -> 2 -> 2 -> `B0
 }
 
 pred canFlipDiagTL[prev: State, row, col: Int, post: State, row2, col2: Int] {
@@ -269,9 +373,30 @@ pred canFlipDiagTL[prev: State, row, col: Int, post: State, row2, col2: Int] {
             -- Must have piece at every step on the way
             (sameMajorDiag[row, col, rowBetween, colBetween] and
                 rowBetween > rowEnd and rowBetween < row)
-                => prev.board[rowBetween][rowBetween] = post.nextPlayer
+                => prev.board[rowBetween][colBetween] = post.nextPlayer
         }
     }
+}
+
+example someFlipDiagTL is {
+    wellformed 
+    some s: State | {
+        some s.next
+        canFlipDiagTL[s, 3, 3, s.next, 2, 2]
+    }
+} for {
+    State = `S0 + `S1
+    B = `B0
+    W = `W0
+    Player = B + W
+    next = `S0 -> `S1
+    nextPlayer = `S0 -> `B0 + `S1 -> `W0
+
+    board = `S0 -> 1 -> 1 -> `B0 + `S0 -> 1 -> 2 -> `B0 +
+            `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `W0 + 
+            `S1 -> 1 -> 1 -> `B0 + `S1 -> 1 -> 2 -> `B0 +
+            `S1 -> 2 -> 1 -> `B0 + `S1 -> 2 -> 2 -> `B0
+                                                        + `S1 -> 3 -> 3 -> `B0
 }
 
 pred canFlipDiagTR[prev: State, row, col: Int, post: State, row2, col2: Int] {
@@ -280,12 +405,12 @@ pred canFlipDiagTR[prev: State, row, col: Int, post: State, row2, col2: Int] {
 
     -- row, col is where new piece is placed down
     -- row2, col2 is where a previously existing piece on the board is
-    row2 > row
+    row2 < row
     sameMinorDiag[row, col, row2, col2]
 
     some rowEnd, colEnd: Int | {
         -- Checking only the top-right diagonal of row2 col2
-        rowEnd > row2
+        rowEnd < row2
         sameMinorDiag[row, col, rowEnd, colEnd]
         -- Must exist a piece to the top right that belongs to the player who just placed a piece down
         prev.board[rowEnd][colEnd] = prev.nextPlayer
@@ -294,10 +419,31 @@ pred canFlipDiagTR[prev: State, row, col: Int, post: State, row2, col2: Int] {
             -- All pieces along the way must belong to the opposing player
             -- Must have piece at every step on the way
             (sameMinorDiag[row, col, rowBetween, colBetween] and
-                rowBetween < rowEnd and rowBetween > row)
-                => prev.board[rowBetween][rowBetween] = post.nextPlayer
+                rowBetween > rowEnd and rowBetween < row)
+                => prev.board[rowBetween][colBetween] = post.nextPlayer
         }
     }
+}
+
+example someFlipDiagTR is {
+    wellformed 
+    some s: State | {
+        some s.next
+        canFlipDiagTR[s, 3, 0, s.next, 2, 1]
+    }
+} for {
+    State = `S0 + `S1
+    B = `B0
+    W = `W0
+    Player = B + W
+    next = `S0 -> `S1
+    nextPlayer = `S0 -> `B0 + `S1 -> `W0
+
+    board = `S0 -> 1 -> 1 -> `B0 + `S0 -> 1 -> 2 -> `B0 +
+            `S0 -> 2 -> 1 -> `W0 + `S0 -> 2 -> 2 -> `B0 + 
+                                   `S1 -> 1 -> 1 -> `B0 + `S1 -> 1 -> 2 -> `B0 +
+                                   `S1 -> 2 -> 1 -> `B0 + `S1 -> 2 -> 2 -> `B0 +
+            `S0 -> 3 -> 0 -> `B0
 }
 
 pred canFlipDiagBL[prev: State, row, col: Int, post: State, row2, col2: Int] {
@@ -306,12 +452,12 @@ pred canFlipDiagBL[prev: State, row, col: Int, post: State, row2, col2: Int] {
 
     -- row, col is where new piece is placed down
     -- row2, col2 is where a previously existing piece on the board is
-    row2 < row
+    row2 > row
     sameMinorDiag[row, col, row2, col2]  // Minor diagonal
 
     some rowEnd, colEnd: Int | {
         -- Checking only the top-right diagonal of row2 col2
-        rowEnd < row2
+        rowEnd > row2
         sameMinorDiag[row, col, rowEnd, colEnd]
         -- Must exist a piece to the bottom left
         -- that belongs to the player who just placed a piece down
@@ -321,11 +467,34 @@ pred canFlipDiagBL[prev: State, row, col: Int, post: State, row2, col2: Int] {
             -- All pieces along the way must belong to the opposing player
             -- Must have piece at every step on the way
             (sameMinorDiag[row, col, rowBetween, colBetween] and
-                rowBetween > rowEnd and rowBetween < row)
-                => prev.board[rowBetween][rowBetween] = post.nextPlayer
+                rowBetween < rowEnd and rowBetween > row)
+                => prev.board[rowBetween][colBetween] = post.nextPlayer
         }
     }
 }
+
+/*
+example someFlipDiagBL is {
+    wellformed 
+    some s: State | {
+        some s.next
+        canFlipDiagBL[s, 0, 3, s.next, 1, 2]
+    }
+} for {
+    State = `S0 + `S1
+    B = `B0
+    W = `W0
+    Player = B + W
+    next = `S0 -> `S1
+    nextPlayer = `S0 -> `B0 + `S1 -> `W0
+
+    board = `S0 -> 1 -> 1 -> `B0 + `S0 -> 1 -> 2 -> `W0 +
+            `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `B0
+                                                        + `S1 -> 0 -> 3 -> `B0
+            `S1 -> 1 -> 1 -> `B0 + `S1 -> 1 -> 2 -> `B0 +
+            `S1 -> 2 -> 1 -> `B0 + `S1 -> 2 -> 2 -> `B0
+}*/
+
 
 fun countPieces[s: State]: Int{
     #{i, j: Int | some s.board[i][j]}
@@ -342,6 +511,154 @@ pred canFlipTile[prev: State, row, col: Int, post: State, row2, col2: Int] {
     or canFlipDiagTR[prev, row, col, post, row2, col2]
     or canFlipDiagBL[prev, row, col, post, row2, col2]
     or canFlipDiagBR[prev, row, col, post, row2, col2]
+}
+
+fun abs(x : Int): Int {
+    (x >= 0) => x else subtract[0, x]
+}
+
+fun sign(x : Int): Int {
+    (x > 0) => 1
+        else {(x = 0) => 0 else -1}
+}
+
+pred canFlip[prev: State, row, col: Int, row2, col2: Int] {
+    -- (row, col) and (row2, col2) are on the same row, column, or diagonal
+    row = row2 or
+    col = col2 or
+    abs[subtract[row, row2]] = abs[subtract[col, col2]]
+
+    some p: Player | some o: Player | {
+        p = prev.nextPlayer
+        o != p
+
+        -- There is some end element that is the same piece as the player just played
+        -- (subtract[row2, row], subtract[col2, col]) give the direction. we multiply that by an integer
+        some end: Int | {
+            end > 0
+            -- The resulting element is inbounds
+            add[multiply[sign[subtract[row2, row]], end], row] >= 0
+            add[multiply[sign[subtract[row2, row]], end], row] <= 3
+            add[multiply[sign[subtract[col2, col]], end], col] >= 0
+            add[multiply[sign[subtract[col2, col]], end], col] <= 3
+
+            prev.board[add[multiply[sign[subtract[row2, row]], end], row]][add[multiply[sign[subtract[col2, col]], end], col]] = p
+
+            -- All pieces between are the piece of the opposite player
+            all bet: Int | {
+                (bet > 0 and bet < end) implies
+                    prev.board[add[multiply[sign[subtract[row2, row]], bet], row]][add[multiply[sign[subtract[col2, col]], bet], col]] = o
+            }
+        }
+    }
+}
+
+example canFlipRight is {
+    wellformed 
+    some s: State | canFlip[s, 1, 0, 1, 1]
+} for {
+    State = `S0
+    B = `B0
+    W = `W0
+    Player = B + W
+    nextPlayer = `S0 -> `B0
+
+    board = `S0 -> 1 -> 1 -> `W0 + `S0 -> 1 -> 2 -> `B0 +
+            `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `W0
+}
+
+example canFlipLeft is {
+    wellformed 
+    some s: State | canFlip[s, 2, 3, 2, 2]
+} for {
+    State = `S0
+    B = `B0
+    W = `W0
+    Player = B + W
+    nextPlayer = `S0 -> `B0
+
+    board = `S0 -> 1 -> 1 -> `W0 + `S0 -> 1 -> 2 -> `B0 +
+            `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `W0
+}
+example canFlipUp is {
+    wellformed 
+    some s: State | canFlip[s, 3, 2, 2, 2]
+} for {
+    State = `S0
+    B = `B0
+    W = `W0
+    Player = B + W
+    nextPlayer = `S0 -> `B0
+
+    board = `S0 -> 1 -> 1 -> `W0 + `S0 -> 1 -> 2 -> `B0 +
+            `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `W0
+}
+
+example canFlipDown is {
+    wellformed 
+    some s: State | canFlip[s, 0, 1, 1, 1]
+} for {
+    State = `S0
+    B = `B0
+    W = `W0
+    Player = B + W
+    nextPlayer = `S0 -> `B0
+
+    board = `S0 -> 1 -> 1 -> `W0 + `S0 -> 1 -> 2 -> `B0 +
+            `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `W0
+}
+
+example canFlipTL is {
+    wellformed 
+    some s: State | canFlip[s, 3, 3, 2, 2]
+} for {
+    State = `S0
+    B = `B0
+    W = `W0
+    Player = B + W
+    nextPlayer = `S0 -> `B0
+
+    board = `S0 -> 1 -> 1 -> `B0 + `S0 -> 1 -> 2 -> `B0 +
+            `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `W0
+}
+example canFlipBL is {
+    wellformed 
+    some s: State | canFlip[s, 0, 3, 1, 2]
+} for {
+    State = `S0
+    B = `B0
+    W = `W0
+    Player = B + W
+    nextPlayer = `S0 -> `B0
+
+    board = `S0 -> 1 -> 1 -> `W0 + `S0 -> 1 -> 2 -> `W0 +
+            `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `W0
+}
+example canFlipTR is {
+    wellformed 
+    some s: State | canFlip[s, 3, 0, 2, 1]
+} for {
+    State = `S0
+    B = `B0
+    W = `W0
+    Player = B + W
+    nextPlayer = `S0 -> `B0
+
+    board = `S0 -> 1 -> 1 -> `B0 + `S0 -> 1 -> 2 -> `B0 +
+            `S0 -> 2 -> 1 -> `W0 + `S0 -> 2 -> 2 -> `W0
+}
+example canFlipBR is {
+    wellformed 
+    some s: State | canFlip[s, 0, 0, 1, 1]
+} for {
+    State = `S0
+    B = `B0
+    W = `W0
+    Player = B + W
+    nextPlayer = `S0 -> `B0
+
+    board = `S0 -> 1 -> 1 -> `W0 + `S0 -> 1 -> 2 -> `W0 +
+            `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `B0
 }
 
 pred move[prev: State, row: Int, col: Int, post: State] {
@@ -372,6 +689,25 @@ pred move[prev: State, row: Int, col: Int, post: State] {
     }
 }
 
+-- this example is totally valid, but not contained in the run for some reason
+-- we ran it specifying this instance as well, and it worked, but it just did not
+-- appear in the final output
+example canMoveFlipUp is {wellformed and trace} for {
+    State = `S0 + `S1
+    B = `B0
+    W = `W0
+    Player = B + W
+    next = `S0 -> `S1
+    nextPlayer = `S0 -> `B0 + `S1 -> `W0
+
+    board = `S0 -> 1 -> 1 -> `W0 + `S0 -> 1 -> 2 -> `B0 +
+            `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `W0 + 
+            `S1 -> 1 -> 1 -> `W0 + `S1 -> 1 -> 2 -> `B0 +
+            `S1 -> 2 -> 1 -> `B0 + `S1 -> 2 -> 2 -> `B0
+                                 + `S1 -> 3 -> 2 -> `B0
+}
+
+/*
 pred validMove[prev: State, post: State] {
     // Check if the transition from previous state to the post state is valid
     {some row, col: Int | some s: State | move[prev, row, col, s]}
@@ -380,7 +716,7 @@ pred validMove[prev: State, post: State] {
             all row, col: Int | { prev.board[row][col] = post.board[row][col] }
             prev.nextPlayer != post.nextPlayer
         }
-}
+}*/
 
 pred trace {
     some init: State | {
@@ -389,7 +725,7 @@ pred trace {
     }
     
     all s: State | {
-        {some s.next} => validMove[s, s.next]
+        {some s.next} => {some row, col: Int | move[s, row, col, s.next]}
     }
 }
 
@@ -474,7 +810,18 @@ test expect {
 
 run {
     wellformed
-    all s: State | {
-            {some s.next} => validMove[s, s.next]
-        }
-} for exactly 4 State, 4 Int for {next is linear}
+    trace
+} for exactly 2 State, 4 Int for {
+    State = `S0 + `S1
+    B = `B0
+    W = `W0
+    Player = B + W
+    next = `S0 -> `S1
+    nextPlayer = `S0 -> `B0 + `S1 -> `W0
+
+    board = `S0 -> 1 -> 1 -> `W0 + `S0 -> 1 -> 2 -> `B0 +
+            `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `W0 + 
+            `S1 -> 1 -> 1 -> `W0 + `S1 -> 1 -> 2 -> `B0 +
+            `S1 -> 2 -> 1 -> `B0 + `S1 -> 2 -> 2 -> `B0
+                                 + `S1 -> 3 -> 2 -> `B0
+}
