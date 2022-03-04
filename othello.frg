@@ -10,22 +10,14 @@ sig State {
     nextPlayer: one Player
 }
 
+pred inbounds[row, col: Int] {
+    row >= 0 and row <= 3 and col >= 0 and col <= 3
+} 
+
 pred wellformed {
-    -- The board is 7x7 (subject to change)
-    /*
     all s: State | {
         all i, j: Int {
-            (i < 0 or i > 7 or j < 0 or j > 7)
-                => no s.board[i][j]
-        }
-    }
-    */
-    // Temporarily shrinking board for testing
-    -- The board is 4x4 (simplifying to reduce run time)
-        all s: State | {
-        all i, j: Int {
-            (i < 0 or i > 3 or j < 0 or j > 3)
-                => no s.board[i][j]
+            (not inbounds[i, j]) => no s.board[i][j]
         }
     }
 }
@@ -522,11 +514,44 @@ fun sign(x : Int): Int {
         else {(x = 0) => 0 else -1}
 }
 
+fun offsetRC(row, offset, row2: Int) : Int {
+    // offset units from (row, col) in the direction of (row2, col2)
+    // Same operation on rows and columns
+    (row < row2)
+        => add[row, offset]
+        else {
+            (row = row2)
+                => row
+                else subtract[row, offset]
+        }
+}
+
+pred offsetInbounds[row, offset, row2: Int] {
+    (row < row2)
+        => offset <= subtract[3, row]
+        else {(row > row2) => offset <= subtract[row, 0]}
+}
+
+test expect {
+    inboundsTest1: { offsetInbounds[0, 2, 3] } for 4 Int is sat
+    inboundsTest2: { offsetInbounds[1, 2, 3] } for 4 Int is sat
+    inboundsTest3: { offsetInbounds[3, 2, 0] } for 4 Int is sat
+    inboundsTest4: { offsetInbounds[2, 2, 1] } for 4 Int is sat
+    outboundsTest1: { offsetInbounds[2, 2, 3] } for 4 Int is unsat
+    outboundsTest2: { offsetInbounds[1, 2, 0] } for 4 Int is unsat
+}
+
+fun absDiff(x, y: Int): Int {
+    // calculates the absolute difference of x and y
+    (x <= y) => {subtract[y, x]} else {subtract[x, y]}
+}
+
 pred canFlip[prev: State, row, col: Int, row2, col2: Int] {
     -- (row, col) and (row2, col2) are on the same row, column, or diagonal
     row = row2 or
     col = col2 or
-    abs[subtract[row, row2]] = abs[subtract[col, col2]]
+    absDiff[row, row2] = absDiff[col, col2]
+    not (row = row2 and col = col2)
 
     some p: Player | some o: Player | {
         p = prev.nextPlayer
@@ -535,27 +560,44 @@ pred canFlip[prev: State, row, col: Int, row2, col2: Int] {
         -- There is some end element that is the same piece as the player just played
         -- (subtract[row2, row], subtract[col2, col]) give the direction. we multiply that by an integer
         some end: Int | {
-            end > 0
-            -- The resulting element is inbounds
-            add[multiply[sign[subtract[row2, row]], end], row] >= 0
-            add[multiply[sign[subtract[row2, row]], end], row] <= 3
-            add[multiply[sign[subtract[col2, col]], end], col] >= 0
-            add[multiply[sign[subtract[col2, col]], end], col] <= 3
+            -- The end point must be beyond the (row2, col2)
+            end > absDiff[row, row2]
+            end > absDiff[col, col2]
 
-            prev.board[add[multiply[sign[subtract[row2, row]], end], row]][add[multiply[sign[subtract[col2, col]], end], col]] = p
+            -- The resulting element is inbounds
+            offsetInbounds[row, end, row2]
+            offsetInbounds[col, end, col2]
+
+            prev.board[offsetRC[row, end, row2]][offsetRC[col, end, col2]] = p
 
             -- All pieces between are the piece of the opposite player
             all bet: Int | {
                 (bet > 0 and bet < end) implies
-                    prev.board[add[multiply[sign[subtract[row2, row]], bet], row]][add[multiply[sign[subtract[col2, col]], bet], col]] = o
+                    prev.board[offsetRC[row, bet, row2]][offsetRC[col, bet, col2]] = o
             }
         }
     }
 }
 
-example canFlipRight is {
+pred onlyOneFlip[row, col, rowf, colf: Int] {
+    // The placement at (row, col) only flips (rowf, colf)
+    // For testing purposes
+    some s: State | {
+        all row2, col2: Int | {
+            -- inbounds
+            {inbounds[row2, col2]}
+                => {(row2 = rowf and col2 = colf) <=> canFlip[s, row, col, row2, col2]}
+}
+    }
+}
+
+
+example canFlipOrthogonal is {
     wellformed 
-    some s: State | canFlip[s, 1, 0, 1, 1]
+    onlyOneFlip[1, 0, 1, 1]
+    onlyOneFlip[0, 1, 1, 1]
+    onlyOneFlip[2, 3, 2, 2]
+    onlyOneFlip[3, 2, 2, 2]
 } for {
     State = `S0
     B = `B0
@@ -567,51 +609,7 @@ example canFlipRight is {
             `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `W0
 }
 
-example canFlipLeft is {
-    wellformed 
-    some s: State | canFlip[s, 2, 3, 2, 2]
-} for {
-    State = `S0
-    B = `B0
-    W = `W0
-    Player = B + W
-    nextPlayer = `S0 -> `B0
-
-    board = `S0 -> 1 -> 1 -> `W0 + `S0 -> 1 -> 2 -> `B0 +
-            `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `W0
-}
-example canFlipUp is {
-    wellformed 
-    some s: State | canFlip[s, 3, 2, 2, 2]
-} for {
-    State = `S0
-    B = `B0
-    W = `W0
-    Player = B + W
-    nextPlayer = `S0 -> `B0
-
-    board = `S0 -> 1 -> 1 -> `W0 + `S0 -> 1 -> 2 -> `B0 +
-            `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `W0
-}
-
-example canFlipDown is {
-    wellformed 
-    some s: State | canFlip[s, 0, 1, 1, 1]
-} for {
-    State = `S0
-    B = `B0
-    W = `W0
-    Player = B + W
-    nextPlayer = `S0 -> `B0
-
-    board = `S0 -> 1 -> 1 -> `W0 + `S0 -> 1 -> 2 -> `B0 +
-            `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `W0
-}
-
-example canFlipTL is {
-    wellformed 
-    some s: State | canFlip[s, 3, 3, 2, 2]
-} for {
+example canFlipTL is {wellformed and onlyOneFlip[3, 3, 2, 2]} for {
     State = `S0
     B = `B0
     W = `W0
@@ -621,10 +619,7 @@ example canFlipTL is {
     board = `S0 -> 1 -> 1 -> `B0 + `S0 -> 1 -> 2 -> `B0 +
             `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `W0
 }
-example canFlipBL is {
-    wellformed 
-    some s: State | canFlip[s, 0, 3, 1, 2]
-} for {
+example canFlipBL is {wellformed and onlyOneFlip[0, 3, 1, 2]} for {
     State = `S0
     B = `B0
     W = `W0
@@ -634,10 +629,7 @@ example canFlipBL is {
     board = `S0 -> 1 -> 1 -> `W0 + `S0 -> 1 -> 2 -> `W0 +
             `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `W0
 }
-example canFlipTR is {
-    wellformed 
-    some s: State | canFlip[s, 3, 0, 2, 1]
-} for {
+example canFlipTR is {wellformed and onlyOneFlip[3, 0, 2, 1]} for {
     State = `S0
     B = `B0
     W = `W0
@@ -647,10 +639,7 @@ example canFlipTR is {
     board = `S0 -> 1 -> 1 -> `B0 + `S0 -> 1 -> 2 -> `B0 +
             `S0 -> 2 -> 1 -> `W0 + `S0 -> 2 -> 2 -> `W0
 }
-example canFlipBR is {
-    wellformed 
-    some s: State | canFlip[s, 0, 0, 1, 1]
-} for {
+example canFlipBR is {wellformed and onlyOneFlip[0, 0, 1, 1]} for {
     State = `S0
     B = `B0
     W = `W0
@@ -670,21 +659,29 @@ pred move[prev: State, row: Int, col: Int, post: State] {
     prev.nextPlayer != post.nextPlayer
     
     -- Only one piece was placed down
-    subtract[countPieces[post], countPieces[prev]] = 1
+    --subtract[countPieces[post], countPieces[prev]] = 1
     
     -- Must have difference of at least 2 pieces between each board for current player as this implies that a piece was flipped
-    subtract[countPlayerPieces[post, prev.nextPlayer], countPlayerPieces[prev, prev.nextPlayer]] > 1
+    some row2, col2: Int | {
+        some prev.board[row2, col2]
+        prev.board[row2, col2] != post.board[row2, col2]
+    }
 
     all row2, col2: Int | {
+        (inbounds[row2, col2]) => {
         (row = row2 and col = col2) => {
             -- Player placed down piece
             post.board[row2][col2] = prev.nextPlayer
         } else {
             -- Changed due to being able to flip the piece
-            { canFlipTile[prev, row, col, post, row2, col2] }
-                => prev.board[row2][col2] != post.board[row2][col2]
+                { canFlip[prev, row, col, row2, col2] }
+                    => {
+                        some post.board[row2, col2]
+                        prev.board[row2][col2] != post.board[row2][col2]
+                    }
                 -- otherwise stays the same
                 else prev.board[row2][col2] = post.board[row2][col2]
+            }
         }
     }
 }
