@@ -1,4 +1,4 @@
-#lang forge/bsl "cm" "dfz64hwblegqmenu; nhxnc2rfkjov1qjp"
+#lang forge "cm" "dfz64hwblegqmenu; nhxnc2rfkjov1qjp"
 
 abstract sig Player { }
 -- Represents black and white
@@ -83,7 +83,7 @@ pred winByMorePieces[s: State, p: Player] {
         all i, j: Int | {
             -- (i >= 0 and i <= 7 and j >= 0 and j <= 7)
             -- needs this line otherwise unsat even tho already guaranteed in wellformed
-                (i >= 0 and i <= 3 and j >= 0 and j <= 3)
+                (inbounds[i, j])
                     => pieceExists[i, j, s]
         }
     }
@@ -344,7 +344,7 @@ example someFlipDiagBR is {
                                    `S1 -> 2 -> 1 -> `B0 + `S1 -> 2 -> 2 -> `B0
 }
 
-pred canFlipDiagTL[prev: State, row, col: Int, post: State, row2, col2: Int] {
+pred canFlipDiagTL[prev: State, row: Int, col: Int, post: State, row2: Int, col2: Int] {
     -- The players cannot be the same
     prev.nextPlayer != post.nextPlayer
 
@@ -465,7 +465,7 @@ pred canFlipDiagBL[prev: State, row, col: Int, post: State, row2, col2: Int] {
     }
 }
 
-/*
+
 example someFlipDiagBL is {
     wellformed 
     some s: State | {
@@ -482,10 +482,10 @@ example someFlipDiagBL is {
 
     board = `S0 -> 1 -> 1 -> `B0 + `S0 -> 1 -> 2 -> `W0 +
             `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `B0
-                                                        + `S1 -> 0 -> 3 -> `B0
+                                                        + `S1 -> 0 -> 3 -> `B0 +
             `S1 -> 1 -> 1 -> `B0 + `S1 -> 1 -> 2 -> `B0 +
             `S1 -> 2 -> 1 -> `B0 + `S1 -> 2 -> 2 -> `B0
-}*/
+}
 
 
 fun countPieces[s: State]: Int{
@@ -587,13 +587,13 @@ pred onlyOneFlip[row, col, rowf, colf: Int] {
             -- inbounds
             {inbounds[row2, col2]}
                 => {(row2 = rowf and col2 = colf) <=> canFlip[s, row, col, row2, col2]}
-}
+        }
     }
 }
 
 
 example canFlipOrthogonal is {
-    wellformed 
+    wellformed
     onlyOneFlip[1, 0, 1, 1]
     onlyOneFlip[0, 1, 1, 1]
     onlyOneFlip[2, 3, 2, 2]
@@ -652,6 +652,8 @@ example canFlipBR is {wellformed and onlyOneFlip[0, 0, 1, 1]} for {
 
 pred move[prev: State, row: Int, col: Int, post: State] {
     -- Guard
+    -- the placement is inbounds
+    inbounds[row, col]
     -- The place where the next piece is placed is empty
     no prev.board[row][col]
     
@@ -669,22 +671,45 @@ pred move[prev: State, row: Int, col: Int, post: State] {
 
     all row2, col2: Int | {
         (inbounds[row2, col2]) => {
-        (row = row2 and col = col2) => {
-            -- Player placed down piece
-            post.board[row2][col2] = prev.nextPlayer
-        } else {
-            -- Changed due to being able to flip the piece
+            (row = row2 and col = col2) => {
+                -- Player placed down piece
+                post.board[row2][col2] = prev.nextPlayer
+            } else {
+                -- Changed due to being able to flip the piece
                 { canFlip[prev, row, col, row2, col2] }
                     => {
                         some post.board[row2, col2]
                         prev.board[row2][col2] != post.board[row2][col2]
                     }
-                -- otherwise stays the same
-                else prev.board[row2][col2] = post.board[row2][col2]
+                    -- otherwise stays the same
+                    else prev.board[row2][col2] = post.board[row2][col2]
             }
         }
     }
 }
+
+-- Testing that the move only happens when where is some piece to be flipped
+-- Did not work perfectly
+/*
+test expect {
+    moveIFFCanFlip: {
+        -- somehow they generated instances with 0 states, so I am writing to prevent that
+        { wellformed and {some s: State | {some o: State | s != o}} } => {
+            some s: State | all row, col: Int | {
+                {
+                    inbounds[row, col]
+                    some s.board[row, col]
+                    some row2, col2: Int | {
+                        inbounds[row2, col2]
+                        canFlip[s, row, col, row2, col2]
+                    }
+                } <=> {
+                    some nxt: State | move[s, row, col, nxt]
+                }
+            }
+        }
+    } for 2 State, 3 Int is theorem
+}*/
 
 -- this example is totally valid, but not contained in the run for some reason
 -- we ran it specifying this instance as well, and it worked, but it just did not
@@ -704,6 +729,10 @@ example canMoveFlipUp is {wellformed and trace} for {
                                  + `S1 -> 3 -> 2 -> `B0
 }
 
+// An attempt at making transitions that allow for no change
+// In other words, allow giving the turn to the other player when
+// one player cannot place a piece
+// Abandoned due to performance issues
 /*
 pred validMove[prev: State, post: State] {
     // Check if the transition from previous state to the post state is valid
@@ -715,15 +744,18 @@ pred validMove[prev: State, post: State] {
         }
 }*/
 
+pred allValidMove {
+    all s: State | {
+        {some s.next} => {some row, col: Int | move[s, row, col, s.next]}
+    }
+}
+
 pred trace {
     some init: State | {
         no s: State | { s.next = init }
         initState[init]
     }
-    
-    all s: State | {
-        {some s.next} => {some row, col: Int | move[s, row, col, s.next]}
-    }
+    allValidMove
 }
 
 pred cheatReplacePiece[prev: State, row, col: Int, post: State] {
@@ -764,7 +796,7 @@ pred cheating[s: State] {
     }
 }
 
-/*
+
 -- Both rows and col can be flipped at once
 test expect {
     bothRowAndColFlip: {
@@ -777,48 +809,129 @@ test expect {
                 some row2: Int | s2.board[row2][col] != s1.board[row2][col]
             }
         }
-    } for exactly 2 State, 4 Int for {next is linear} is sat
+    } for exactly 2 State, 3 Int for {next is linear} is sat
 
     -- At most 6 pieces can be flipped from a single move on a wellformed board
     flipSixAtOnce: {
-    wellformed
-    some s1, s2: State | {
-        some row, col: Int | {
-            s1.next = s2
-            move[s1, row, col, s2]
-            subtract[countPlayerPieces[s2, s1.nextPlayer], countPlayerPieces[s1, s1.nextPlayer]] = 6
+        wellformed
+        some s1, s2: State | {
+            some row, col: Int | {
+                    s1.next = s2
+                    move[s1, row, col, s2]
+                    subtract[countPlayerPieces[s2, s1.nextPlayer], countPlayerPieces[s1, s1.nextPlayer]] = 6
             }
         }
-    } for exactly 2 State, 4 Int for {next is linear} is sat
+    } for exactly 2 State, 3 Int for {next is linear} is sat
+
 }
 
 -- inductive proof of no cheating
 test expect {
     inductive: {
         wellformed
-        some disj pre, post: State | 
-        some row, col: Int | {       
-            move[pre, row, col, post]
-            not cheating[pre]
-            cheating[post]
+        some pre, post: State | {
+            some row, col: Int | {
+                move[pre, row, col, post]
+                not cheating[pre]
+                cheating[post]
+            }
         }
-    } for 2 State, 4 Int is unsat
-}*/
+    } for 2 State, 3 Int is unsat
+}
+
+test expect {
+    -- Some states cannot move to another state (stuck)
+    noCanMove: {
+        wellformed
+        some s: State | {
+            no row, col: Int | {some next: State | move[s, row, col, next]}
+        }
+    } for exactly 2 State, 3 Int is sat
+
+    anotherCanPlayWithOneStuck: {
+        wellformed
+        -- Some states cannot move to another state (stuck)
+        some s: State | {
+            no row, col, row2, col2: Int | {
+                inbounds[row, col]
+                inbounds[row2, col2]
+                canFlip[s, row, col, row2, col2]
+            }
+
+            -- The other player can play at this state
+            some other: State | {
+                -- board is the same except the player
+                all row, col: Int | other.board[row, col] = s.board[row, col]
+                some other.nextPlayer
+                other.nextPlayer != s.nextPlayer
+
+                -- some move can be done on the other state
+                some row, col, row2, col2: Int | {
+                    inbounds[row, col]
+                    inbounds[row2, col2]
+                    canFlip[other, row, col, row2, col2]
+                }
+            }
+        }
+    } for exactly 2 State, 3 Int is sat
+    
+    bothCannotPlay: {
+        wellformed
+        -- Some states cannot move to another state (stuck)
+        some s: State | {
+            -- There is more than one piece
+            countPieces[s] > 10
+
+            no row, col, row2, col2: Int | {
+                inbounds[row, col]
+                inbounds[row2, col2]
+                canFlip[s, row, col, row2, col2]
+            }
+
+            -- The other player can play at this state
+            some other: State | {
+                -- board is the same except the player
+                all row, col: Int | other.board[row, col] = s.board[row, col]
+                some other.nextPlayer
+                other.nextPlayer != s.nextPlayer
+
+                -- no move can be done on the other state either
+                no row, col, row2, col2: Int | {
+                    inbounds[row, col]
+                    inbounds[row2, col2]
+                    canFlip[other, row, col, row2, col2]
+                }
+            }
+        }
+    } for exactly 2 State, 3 Int is sat
+}
+
+inst boardOptimizer8State {
+    State = `State0 + `State1 + `State2 + `State3 + `State4 + `State5 + `State6 + `State7
+    B = `B0
+    W = `W0
+    Player = B + W
+    next = `State0 -> `State1 + `State1 -> `State2 + `State2 -> `State3 +
+            `State3 -> `State4 + `State4 -> `State5 + `State5 -> `State6 +
+            `State6 -> `State7
+
+    board in State -> 
+             (0 + 1 + 2 + 3) -> 
+             (0 + 1 + 2 + 3) -> 
+             Player
+}
+
+-------- RUN COMMANDS --------
 
 run {
     wellformed
     trace
-} for exactly 2 State, 4 Int for {
-    State = `S0 + `S1
-    B = `B0
-    W = `W0
-    Player = B + W
-    next = `S0 -> `S1
-    nextPlayer = `S0 -> `B0 + `S1 -> `W0
-
-    board = `S0 -> 1 -> 1 -> `W0 + `S0 -> 1 -> 2 -> `B0 +
-            `S0 -> 2 -> 1 -> `B0 + `S0 -> 2 -> 2 -> `W0 + 
-            `S1 -> 1 -> 1 -> `W0 + `S1 -> 1 -> 2 -> `B0 +
-            `S1 -> 2 -> 1 -> `B0 + `S1 -> 2 -> 2 -> `B0
-                                 + `S1 -> 3 -> 2 -> `B0
+} for exactly 8 State, 3 Int for {
+    boardOptimizer8State
 }
+/*
+run {
+    wellformed
+    allValidMove
+} for exactly 2 State, 3 Int for {next is linear}*/
+

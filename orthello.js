@@ -14,7 +14,7 @@ function printState(stateAtom, yoffset) {
     for (r = 0; r <= 3; r++) {
         for (c = 0; c <= 3; c++) {
             printValue(r, c, yoffset,
-                stateAtom.board[r][c]
+                stateAtom.board[c][r]
                     .toString().substring(0, 1))
         }
     }
@@ -32,7 +32,7 @@ function printState(stateAtom, yoffset) {
 
 
 var offset = 0
-for (b = 0; b <= 3; b++) {
+for (b = 0; b <= 7; b++) {
     if (State.atom("State" + b) != null)
         printState(State.atom("State" + b), offset)
     offset = offset + 80
