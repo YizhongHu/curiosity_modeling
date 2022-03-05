@@ -24,16 +24,26 @@ The wellformed predicate ensures the board is a 4x4 size board.
 
 The winAllPiecesSame and winByMorePieces pred each represent a game end condition, with the first being the case where all the pieces on the board belong to the same player while the second being the case where the board is full and the player with more pieces on the board wins.
 
-The `canFlipTile` predicate is a part of the `move` predicate. When canFlipTile pred is satisfied, it means that the tile at that position will change to the other player’s tile from the previous turn to the next turn.
+The `canFlipTile` predicate checks for tiles we can flip in the conventional way. It is used for testing
 It is composed of 8 sub-predicates: `canFlipColUp`, `canFlipColDown`, `canFlipRowLeft`, `canFlipRowRight`, `canFlipDiagTL`, `canFlipDiagTR`, `canFlipDiagBL`, `canFlipDiagBR`. For each a position on the board `(row2, col2)`, we check if it can be flipped by a piece at `(row, col)` in
-a certain direction. This contains method many repetitions, and we do have a shorter version that we
-believe is correct through testing called `canFlip`, but it has by far the highest efficiency.
-Since this model's complexity is constrained by its efficiency, we chose this more wordy
-solution instead.
+a certain direction. We have positive tests for all of them.
+
+A shorter version of `canFlipTile`, `canFlip`, is the one we used. Instead of listing every possible
+direction there is, we calculate the directions. With full forge, this can hopefully reduce computation
+in the future. We tested with simple configurations to check that in each direction, a tile flip
+can be detected, and that no other tile flips can happen. 
+
+We made an attempt at checking that a move can and must exist if some tile can be flipped by some placement of hand, with the `moveIFFCanFlip` test. However, we were running short of time and it was
+having issues by the time of submission.
 
 The cheating predicate checks for various cheating methods, namely, a player replaces a piece illegally, a player flips a piece illegally, a player takes two turns in a row or a player plays more than one piece in a turn. This is by no means a comprehensive test, and we reuse most of our model's
 code to test for that, especially with if a piece is flipped illegally. However, this does build
 confidence that as of the correctness of our model.
 
-We have two run statements, one is a trace from the initial state. It takes about 10 minutes to run. 
-Another run statement is a trace from any well-formed state.
+Most importantly, we made checks for states where one player cannot play anywhere. It is an integral 
+part of the game that we omitted, but we can at least prove there are such states.
+
+We have two run statements, one is a trace from the initial state. It has 8 States, but given the
+computational power, we may be able to trace more states. We have another trace that demonstrate
+a state transition (2 states) from a non-initial state. Some of them are not reachable from initial
+state, as we will be able to see, 
